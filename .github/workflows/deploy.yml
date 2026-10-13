@@ -1,0 +1,66 @@
+name: AWS deployment manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Create a reviewable change set, or execute it after checks'
+        type: choice
+        options: ['plan-only', 'apply']
+        default: 'plan-only'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-thread-deployment
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-southeast-1
+      ARTIFACT_BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
+      STACK_NAME: thread-clothing-pipeline
+      DEPLOY_MODE: ${{ inputs.mode }}
+    defaults:
+      run:
+        working-directory: clothing-pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pipeline-release
+          path: clothing-pipeline/dist
+      - name: Check required repository variables
+        env:
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          test -n "$ARTIFACT_BUCKET"
+          test -n "$ROLE_ARN"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: thread-deploy-${{ github.run_id }}
+      - run: python -m pip install -e '.[cloud]'
+      - name: Upload release and create change set
+        run: python scripts/deploy_release.py --stack "$STACK_NAME" --bucket "$ARTIFACT_BUCKET" --region "$AWS_REGION" --prefix "thread-runtime/$GITHUB_SHA" --mode "$DEPLOY_MODE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aws-change-set
+          path: clothing-pipeline/dist/change-set.json
+          retention-days: 7
