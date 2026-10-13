@@ -29,7 +29,7 @@ def template(account, region="ap-southeast-1", repository="Sater17/thread-clothi
         allow(["sqs:*"], arn("sqs", stack + "-*")),
         allow(["events:*"], arn("events", "rule/" + stack + "-*")),
         allow(["states:*"], [arn("states", "stateMachine:" + stack + "-*"), arn("states", "execution:" + stack + "-*:*")]),
-        allow(["glue:*"], [arn("glue", "catalog"), arn("glue", "database/thread_pipeline"), arn("glue", "table/thread_pipeline/*"), arn("glue", "job/" + stack + "-*")]),
+        allow(["glue:*"], [arn("glue", "catalog"), arn("glue", "database/thread_pipeline"), arn("glue", "table/thread_pipeline/*"), arn("glue", "userDefinedFunction/thread_pipeline/*"), arn("glue", "job/" + stack + "-*")]),
         allow(["logs:*"], [arn("logs", "log-group:/aws/lambda/" + stack + "-*:*")]),
         allow(["cloudwatch:*"], arn("cloudwatch", "alarm:" + stack + "-*")),
         allow(["iam:CreateRole"], "arn:aws:iam::" + account + ":role/" + stack + "-*", {"StringEquals": {"iam:PermissionsBoundary": boundary}}),

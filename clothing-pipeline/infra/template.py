@@ -89,7 +89,7 @@ def template():
         "MarkFailed": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke", "Parameters": {"FunctionName": arn("ControlFunction"),
             "Payload": {"action": "complete", "run_token.$": "$.run_token", "failed": True}}, "Next": "Failed"},
         "Failed": {"Type": "Fail", "Error": "GlueRunFailed"}}}
-    resources["Workflow"] = {"Type": "AWS::StepFunctions::StateMachine", "Properties": {"RoleArn": arn("WorkflowRole"), "StateMachineType": "STANDARD", "Definition": definition}}
+    resources["Workflow"] = {"Type": "AWS::StepFunctions::StateMachine", "Properties": {"StateMachineName": sub("${AWS::StackName}-workflow"), "RoleArn": arn("WorkflowRole"), "StateMachineType": "STANDARD", "Definition": definition}}
     resources["ScheduleRole"] = role("events.amazonaws.com", [allow(["states:StartExecution"], ref("Workflow"))])
     resources["DailySchedule"] = {"Type": "AWS::Events::Rule", "Properties": {"ScheduleExpression": "cron(0 19 * * ? *)", "State": ref("ScheduleState"),
         "Targets": [{"Id": "Workflow", "Arn": ref("Workflow"), "RoleArn": arn("ScheduleRole"), "Input": "{}"}]}}

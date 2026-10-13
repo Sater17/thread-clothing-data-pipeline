@@ -54,6 +54,8 @@ infra/bootstrap.py sinh stack riêng thread-deployment-bootstrap gồm bucket co
 
 scripts/aws_cli.py là helper tùy chọn cho môi trường Windows có AWS profile aws-elt trong WSL Ubuntu. Helper chuyển file:// sang đường dẫn /mnt, gọi CLI bằng argv và không đọc credentials. Các thao tác tạo change set, execute và upload phải gọi tường minh; import/build không gọi AWS.
 
+scripts/aws_smoke.py upload dùng đúng fixture data/aws-smoke/input (24 sự kiện, tối đa 100 KB), gửi catalog/raw trước manifest và kiểm tra SHA256 khi object đã tồn tại. start chỉ gọi workflow khi mọi batch đã READY trong DynamoDB, đặt execution name smoke-v1 và lưu ARN để tránh chạy trùng. inspect tải marker/result và so với oracle local sau khi workflow SUCCEEDED. Các lệnh này gọi AWS thật, không chạy trong CI.
+
 Lệnh local tương đương: python scripts/deploy_release.py --stack thread-clothing-pipeline --bucket BUCKET --prefix thread-runtime/COMMIT --profile aws-elt --mode plan-only. Lệnh mặc định không thực thi change set, nhưng vẫn ghi release assets lên S3 và tạo change set trên AWS.
 
 ## Trình tự sau khi được phép triển khai

@@ -24,3 +24,7 @@ class BootstrapTests(unittest.TestCase):
 
     def test_existing_provider_is_reused(self):
         self.assertNotIn("GitHubOidc", template("123456789012", provider_exists=True)["Resources"])
+
+    def test_workflow_name_matches_runtime_boundary_prefix(self):
+        name = pipeline()["Resources"]["Workflow"]["Properties"]["StateMachineName"]
+        self.assertEqual({"Fn::Sub": "${AWS::StackName}-workflow"}, name)
