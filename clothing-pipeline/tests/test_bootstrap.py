@@ -8,7 +8,7 @@ class BootstrapTests(unittest.TestCase):
         role = template("123456789012")["Resources"]["DeployRole"]
         trust = role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]
         self.assertEqual({"token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-            "token.actions.githubusercontent.com:sub": "repo:Sater17/thread-clothing-data-pipeline:ref:refs/heads/main"}, trust["Condition"]["StringEquals"])
+            "token.actions.githubusercontent.com:sub": "repo:Sater17@79832416/thread-clothing-data-pipeline@1416576645:ref:refs/heads/main"}, trust["Condition"]["StringEquals"])
 
     def test_runtime_cannot_manage_iam_and_all_roles_have_boundary(self):
         spec = template("123456789012")

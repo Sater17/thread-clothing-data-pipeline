@@ -48,7 +48,7 @@ CI chạy khi push hoặc mở pull request: unit/integration tests trên Python
 
 CD chỉ chạy bằng workflow_dispatch trên main, sau khi toàn bộ CI pass. Chế độ mặc định plan-only upload code và tạo change set; apply mới thực thi. Deploy không upload dữ liệu nguồn hoặc chạy Glue, và luôn đặt ScheduleState=DISABLED. Release được kiểm tra SHA256 trước khi upload vào prefix theo commit.
 
-Trước khi chạy CD, cần cấu hình repository variables AWS_ARTIFACT_BUCKET và AWS_DEPLOY_ROLE_ARN. Bucket phải thuộc tài khoản triển khai, cùng region ap-southeast-1. Role dùng GitHub OIDC, trust giới hạn audience sts.amazonaws.com và subject repo:Sater17/thread-clothing-data-pipeline:ref:refs/heads/main. Không lưu access key dài hạn trên GitHub.
+Trước khi chạy CD, cần cấu hình repository variables AWS_ARTIFACT_BUCKET và AWS_DEPLOY_ROLE_ARN. Bucket phải thuộc tài khoản triển khai, cùng region ap-southeast-1. Role dùng GitHub OIDC, trust giới hạn audience sts.amazonaws.com và subject repo:Sater17@79832416/thread-clothing-data-pipeline@1416576645:ref:refs/heads/main. Không lưu access key dài hạn trên GitHub.
 
 infra/bootstrap.py sinh stack riêng thread-deployment-bootstrap gồm bucket code, OIDC provider (hoặc dùng lại provider có sẵn), role thread-github-deploy và managed policy thread-runtime-boundary. Pipeline stack bắt buộc boundary đó tồn tại trước khi tạo runtime roles. Role deploy chỉ tạo runtime role có boundary đúng, không có quyền sửa/xóa boundary. Boundary không cho runtime quản lý IAM. Quyền deploy giới hạn tên tài nguyên của dự án, database thread_pipeline và prefix thread-runtime; API Lambda event-source-mapping có một số quyền không giới hạn resource vì mapping dùng UUID. Đây là quyền quản lý hạ tầng, không cấp cho connector bán hàng.
 

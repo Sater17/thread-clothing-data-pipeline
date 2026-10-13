@@ -35,6 +35,7 @@ class ReleaseTests(unittest.TestCase):
                 session, s3, cfn = MagicMock(), MagicMock(), MagicMock()
                 session.client.side_effect = lambda name: {"s3": s3, "cloudformation": cfn}[name]
                 cfn.create_change_set.return_value = {"Id": "change-id"}
+                cfn.describe_stacks.return_value = {"Stacks": [{"StackStatus": "CREATE_COMPLETE"}]}
                 cfn.describe_change_set.return_value = {"Status": "CREATE_COMPLETE"}
                 deploy(session, directory, "thread-test", "bucket", "thread-runtime/rev1", mode)
                 parameters = cfn.create_change_set.call_args.kwargs["Parameters"]
@@ -52,3 +53,16 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mode"):
             deploy(session, ".", "thread-test", "bucket", "thread-runtime/rev1", "auto")
         session.client.assert_not_called()
+
+    def test_unexecuted_create_plan_stays_create_for_apply(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            self.assets(directory)
+            session, s3, cfn = MagicMock(), MagicMock(), MagicMock()
+            session.client.side_effect = lambda name: {"s3": s3, "cloudformation": cfn}[name]
+            cfn.describe_stacks.return_value = {"Stacks": [{"StackStatus": "REVIEW_IN_PROGRESS"}]}
+            cfn.create_change_set.return_value = {"Id": "change-id"}
+            cfn.describe_change_set.return_value = {"Status": "CREATE_COMPLETE"}
+            deploy(session, directory, "thread-test", "bucket", "thread-runtime/rev1", "apply")
+            self.assertEqual("CREATE", cfn.create_change_set.call_args.kwargs["ChangeSetType"])
+            self.assertIn(unittest.mock.call("stack_create_complete"), cfn.get_waiter.call_args_list)

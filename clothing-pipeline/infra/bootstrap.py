@@ -56,7 +56,7 @@ def template(account, region="ap-southeast-1", repository="Sater17/thread-clothi
             "PublicAccessBlockConfiguration": {k: True for k in ("BlockPublicAcls", "BlockPublicPolicy", "IgnorePublicAcls", "RestrictPublicBuckets")}}},
         "DeployRole": {"Type": "AWS::IAM::Role", "Properties": {"RoleName": "thread-github-deploy", "MaxSessionDuration": 3600,
             "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": provider}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {
-                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com", "token.actions.githubusercontent.com:sub": "repo:" + repository + ":ref:refs/heads/main"}}}]},
+                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com", "token.actions.githubusercontent.com:sub": "repo:Sater17@79832416/thread-clothing-data-pipeline@1416576645:ref:refs/heads/main"}}}]},
             "Policies": [{"PolicyName": "ThreadDeployment", "PolicyDocument": {"Version": "2012-10-17", "Statement": policy}}]}}
     }
     if not provider_exists:

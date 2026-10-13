@@ -45,8 +45,8 @@ def deploy(session, directory, stack, bucket, prefix, mode):
                 raise ValueError("release prefix already contains different code")
     kind = "CREATE"
     try:
-        cfn.describe_stacks(StackName=stack)
-        kind = "UPDATE"
+        status = cfn.describe_stacks(StackName=stack)["Stacks"][0]["StackStatus"]
+        kind = "CREATE" if status == "REVIEW_IN_PROGRESS" else "UPDATE"
     except Exception as exc:
         error = getattr(exc, "response", {}).get("Error", {})
         if error.get("Code") != "ValidationError" or "does not exist" not in error.get("Message", ""):
