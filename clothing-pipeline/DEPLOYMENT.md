@@ -48,7 +48,11 @@ CI chạy khi push hoặc mở pull request: unit/integration tests trên Python
 
 CD chỉ chạy bằng workflow_dispatch trên main, sau khi toàn bộ CI pass. Chế độ mặc định plan-only upload code và tạo change set; apply mới thực thi. Deploy không upload dữ liệu nguồn hoặc chạy Glue, và luôn đặt ScheduleState=DISABLED. Release được kiểm tra SHA256 trước khi upload vào prefix theo commit.
 
-Trước khi chạy CD, cần cấu hình repository variables AWS_ARTIFACT_BUCKET và AWS_DEPLOY_ROLE_ARN. Bucket phải thuộc tài khoản triển khai, cùng region ap-southeast-1. Role dùng GitHub OIDC, trust giới hạn audience sts.amazonaws.com và subject repo:Sater17/thread-clothing-data-pipeline:ref:refs/heads/main. Không lưu access key dài hạn trên GitHub. Role và policy triển khai chưa được tạo bởi các workflow này; cần thiết lập AWS riêng và kiểm tra phạm vi quyền trước lần chạy đầu.
+Trước khi chạy CD, cần cấu hình repository variables AWS_ARTIFACT_BUCKET và AWS_DEPLOY_ROLE_ARN. Bucket phải thuộc tài khoản triển khai, cùng region ap-southeast-1. Role dùng GitHub OIDC, trust giới hạn audience sts.amazonaws.com và subject repo:Sater17/thread-clothing-data-pipeline:ref:refs/heads/main. Không lưu access key dài hạn trên GitHub.
+
+infra/bootstrap.py sinh stack riêng thread-deployment-bootstrap gồm bucket code, OIDC provider (hoặc dùng lại provider có sẵn), role thread-github-deploy và managed policy thread-runtime-boundary. Pipeline stack bắt buộc boundary đó tồn tại trước khi tạo runtime roles. Role deploy chỉ tạo runtime role có boundary đúng, không có quyền sửa/xóa boundary. Boundary không cho runtime quản lý IAM. Quyền deploy giới hạn tên tài nguyên của dự án, database thread_pipeline và prefix thread-runtime; API Lambda event-source-mapping có một số quyền không giới hạn resource vì mapping dùng UUID. Đây là quyền quản lý hạ tầng, không cấp cho connector bán hàng.
+
+scripts/aws_cli.py là helper tùy chọn cho môi trường Windows có AWS profile aws-elt trong WSL Ubuntu. Helper chuyển file:// sang đường dẫn /mnt, gọi CLI bằng argv và không đọc credentials. Các thao tác tạo change set, execute và upload phải gọi tường minh; import/build không gọi AWS.
 
 Lệnh local tương đương: python scripts/deploy_release.py --stack thread-clothing-pipeline --bucket BUCKET --prefix thread-runtime/COMMIT --profile aws-elt --mode plan-only. Lệnh mặc định không thực thi change set, nhưng vẫn ghi release assets lên S3 và tạo change set trên AWS.
 

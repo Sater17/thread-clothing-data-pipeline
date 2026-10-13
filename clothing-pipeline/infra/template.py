@@ -14,6 +14,7 @@ def sub(value):
 
 def role(service, statements):
     return {"Type": "AWS::IAM::Role", "Properties": {
+        "PermissionsBoundary": sub("arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/thread-runtime-boundary"),
         "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": service}, "Action": "sts:AssumeRole"}]},
         "Policies": [{"PolicyName": "PipelineAccess", "PolicyDocument": {"Version": "2012-10-17", "Statement": statements}}]}}
 
@@ -67,6 +68,7 @@ def template():
              sub("arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${DatabaseName}/*")]),
         allow(["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], sub("arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/*"))])
     resources["GlueJob"] = {"Type": "AWS::Glue::Job", "Properties": {
+        "Name": sub("${AWS::StackName}-normalize"),
         "Role": arn("GlueRole"), "Command": {"Name": "pythonshell", "PythonVersion": "3.9", "ScriptLocation": sub("s3://${ArtifactBucket}/${ArtifactPrefix}/glue_job.py")},
         "ExecutionProperty": {"MaxConcurrentRuns": 1}, "MaxRetries": 0, "Timeout": 10, "MaxCapacity": ref("GlueCapacity"),
         "DefaultArguments": {"--bucket": ref("DataBucket"), "--input-prefix": "thread/input", "--output-prefix": "thread/output",
