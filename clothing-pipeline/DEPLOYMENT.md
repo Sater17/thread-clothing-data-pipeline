@@ -1,6 +1,6 @@
 # Triển khai thử pipeline THREAD trên AWS
 
-Đây là runbook cho bước triển khai sau khi xem xét tài khoản và ngân sách. Các tài nguyên chưa được tạo. Chuẩn bị code và lint không đồng nghĩa Glue đã chạy thành công trên AWS.
+Đây là runbook triển khai sau khi xem xét tài khoản và ngân sách. Lần triển khai và smoke test đầu đã hoàn tất ngày 13/10/2026 ở ap-southeast-1; xem AWS-VALIDATION.md. Build/lint vẫn chạy offline và không tự triển khai tài nguyên.
 
 ## Phạm vi lần thử đầu
 

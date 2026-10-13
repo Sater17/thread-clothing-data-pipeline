@@ -1,6 +1,6 @@
 # THREAD clothing data pipeline
 
-Code v1.0 của [thiết kế v1](../clothing-data-pipeline-design-v1.md): simulator hai thị trường, mua/bán/trả, đối soát sàn, hiệu chỉnh có audit và bộ triển khai AWS đã chuẩn bị offline. [Runbook triển khai](DEPLOYMENT.md) ghi rõ cấu hình, giới hạn và trình tự thử. Chưa tạo tài nguyên AWS.
+Code v1.0 của [thiết kế v1](../clothing-data-pipeline-design-v1.md): simulator hai thị trường, mua/bán/trả, đối soát sàn và hiệu chỉnh có audit. Đã triển khai AWS qua GitHub OIDC/CD và chạy thử 24 sự kiện thành công ngày 13/10/2026. [Kết quả kiểm chứng](AWS-VALIDATION.md) và [runbook](DEPLOYMENT.md) ghi rõ phạm vi, cấu hình và giới hạn; lịch tự chạy vẫn tắt.
 
 ## Chạy trên máy
 
@@ -55,7 +55,7 @@ python scripts/dev.py test
 
 `config.json` giữ tham số mô phỏng; `expected-history.json` giữ số đơn/dòng, tiền và tồn được tính từ các hành động kinh doanh của simulator. Pipeline không đọc oracle khi xử lý, chỉ CLI kiểm chứng sau khi hoàn tất. Cùng seed/cấu hình tạo cùng input, gồm cả checksum.
 
-Output Parquet nằm dưới `runs/<run-id>/tables/`; `latest.json` chứa tên file, số dòng và SHA256 từng bảng. Chỉ đọc phiên bản mà con trỏ chỉ tới. Standardized giữ payload/provenance dạng JSON để bảo toàn dữ liệu nguồn; bảng nghiệp vụ có cột được định kiểu. Đây là snapshot Parquet, chưa phải bảng Iceberg và chưa đăng ký Glue Catalog.
+Output Parquet nằm dưới `runs/<run-id>/tables/`; `latest.json` chứa tên file, số dòng và SHA256 từng bảng. Chỉ đọc phiên bản mà con trỏ chỉ tới. Standardized giữ payload/provenance dạng JSON để bảo toàn dữ liệu nguồn; bảng nghiệp vụ có cột được định kiểu. Đây là snapshot Parquet, chưa dùng Iceberg. Local không đăng ký Catalog; adapter cloud đăng ký bảng Glue riêng theo run trước khi đổi latest.json.
 
 ## Phiên bản dữ liệu và snapshot v0.3
 
@@ -184,7 +184,7 @@ Bốn bảng mới: settlements, settlement_lines, payout_transfers, settlement_
 
 Control event event_rejection cho phép operator loại một event hợp lệ nhưng xác nhận sai khỏi phần tích hợp mà vẫn giữ raw và lịch sử rejected=true. Bản mới vẫn được kiểm tra số lượng, tiền và nguồn gốc sau hiệu chỉnh. Đây là luồng quản trị riêng, không nhận chỉ dẫn tự sửa từ dữ liệu bán hàng.
 
-58 tests đã đạt, gồm cả đăng ký đợt → chốt input → Glue adapter → công bố → hoàn tất bằng các AWS boundary mô phỏng. Có kiểm tra guard số bản ghi, catalog theo run và các manifest đến sau không lọt vào input đã chốt. CloudFormation đã lint offline tại ap-southeast-1, không có findings. Code cloud chưa được chạy trên AWS.
+69 tests đã đạt, gồm đăng ký đợt → chốt input → Glue adapter → công bố → hoàn tất bằng AWS boundary mô phỏng, và regression tests cho phục hồi completion. Có kiểm tra guard số bản ghi, catalog theo run và các manifest đến sau không lọt vào input đã chốt. CloudFormation đã lint tại ap-southeast-1, không có findings. Bộ 24 sự kiện đã chạy trên AWS, Glue SUCCEEDED trong 33 giây và workflow SUCCEEDED sau redrive bước completion.
 
 Bộ local bảy ngày/350 đơn/50 SKU mới có 12.539 event/dòng snapshot, mua/bán/trả và snapshot đều đối chiếu đạt; statements và bank payout cũng đạt, không còn pending/quarantine/blocked/check thất bại. Xuất 21 bảng Parquet dưới data/release-v1/. Bộ aws-smoke có 24 event, upload plan 33 file khoảng 16,7 KB, dùng cho lần thử cloud đầu.
 
@@ -197,7 +197,7 @@ Các asset đã build tại dist/: glue_job.py, control.zip, cloudformation.json
 - Các sự kiện stock_move thể hiện sổ hàng chuẩn trong fixture, kể cả chuyển sang đã giao khách. Khi xây adapter nguồn thực, chuyển trạng thái giao nhận phải được suy ra từ sự kiện carrier, không yêu cầu WMS phát sự kiện thay carrier.
 - Order/payment/snapshot/dòng mua có cập nhật toàn bản ghi theo phiên bản. Hiệu chỉnh hàng, patch một phần, xóa đối tượng và lịch sử hiệu lực đầy đủ chưa hỗ trợ. Xung đột bị cách ly hoặc làm job thất bại rõ ràng.
 - Có đối soát sàn chốt toàn vòng đời: gross, refunds, fees, net payout và bank transfer; không cộng bank payout vào doanh thu lần hai. Delta settlement nhiều kỳ và thanh toán nhà cung cấp chưa hỗ trợ.
-- Có JSON/Parquet, code đăng ký Glue Catalog theo run, batch/run ledger và điều phối cloud trong CloudFormation; Iceberg/Spark chưa dùng. Các thành phần AWS mới kiểm chứng offline.
-- Chưa chạy Glue thật, chưa đo phí và chưa tạo tài nguyên AWS.
+- Có JSON/Parquet, Glue Catalog theo run, batch/run ledger và điều phối cloud trong CloudFormation; Iceberg/Spark chưa dùng. Cloud smoke đã xác nhận 16 batch COMPLETED và 21 bảng Catalog.
+- Đã chạy một Glue job thật với 0,0625 DPU. Chưa kiểm chứng tải 500 đơn/ngày hoặc quy kết chi phí riêng từ billing toàn tài khoản.
 
 Phần chuẩn bị cloud: build_deploy.py tạo template và assets; lint_infra.py kiểm tra offline; upload_inputs.py mặc định chỉ in kế hoạch. Chi tiết ở DEPLOYMENT.md. Core vẫn replay trong bộ nhớ; capacity mặc định 0.0625 chỉ dành cho bộ mẫu nhỏ. Chưa đo phí/RAM trên Glue.
