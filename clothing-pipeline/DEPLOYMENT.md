@@ -79,6 +79,8 @@ Job tải các input đã chọn, khôi phục SQLite checkpoint, replay lịch 
 
 Một Glue job cùng lúc và lease hai giờ bảo vệ đường điều phối. Workflow timeout 15 phút, Glue timeout 10 phút. Nếu workflow bị dừng thủ công sau khi có publication nhưng trước completion, kiểm tra token trong marker và RUN record trước khi phục hồi. Không tự xóa lease hay đổi trạng thái khi job còn chạy.
 
+Nếu Glue đã SUCCEEDED nhưng task Complete thất bại, sửa nguyên nhân và dùng Step Functions redrive để chạy lại task bị lỗi, giữ kết quả Glue đã thành công. complete nhận biết RUN terminal và chỉ giải phóng lease nếu token vẫn thuộc run đó; không giải phóng lease của run mới. Các biểu thức DynamoDB dùng alias cho thuộc tính token để tránh reserved keyword. Không start execution mới hoặc force replay chỉ để khắc phục lỗi completion.
+
 Quality issues được lưu để điều tra, không có nghĩa dữ liệu đã nghiệm thu. Batch bị blocked ở Glue được đánh FAILED để xử lý lại. Bản ghi chờ mapping/liên kết được replay khi input mới hoặc catalog mới xuất hiện.
 
 ## Hiệu chỉnh có kiểm soát

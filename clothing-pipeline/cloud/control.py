@@ -80,6 +80,11 @@ def all_items(table):
         request["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
 
+def release_lease(table, token):
+    table.delete_item(Key={"pk": "LOCK"}, ConditionExpression="#owner = :t",
+                      ExpressionAttributeNames={"#owner": "token"}, ExpressionAttributeValues={":t": token})
+
+
 def plan(s3, table, bucket, input_prefix, output_prefix, force=False):
     now, token = int(time.time()), uuid.uuid4().hex
     try:
@@ -106,7 +111,7 @@ def plan(s3, table, bucket, input_prefix, output_prefix, force=False):
             if fresh["status"] == "READY":
                 selected.append(fresh)
         if not selected and not force:
-            table.delete_item(Key={"pk": "LOCK"}, ConditionExpression="token = :t", ExpressionAttributeValues={":t": token})
+            release_lease(table, token)
             return dict(skip=True, reason="no ready batches")
         selected.sort(key=lambda item: item["manifest_key"])
         payload = dict(run_token=token, catalog_sha256=catalog_digest, manifests=[dict(key=i["manifest_key"], digest=i["digest"]) for i in selected])
@@ -119,7 +124,7 @@ def plan(s3, table, bucket, input_prefix, output_prefix, force=False):
                                 batches=[i["pk"] for i in selected], started_at=now))
         return dict(skip=False, run_token=token, plan_key=key)
     except Exception:
-        table.delete_item(Key={"pk": "LOCK"}, ConditionExpression="token = :t", ExpressionAttributeValues={":t": token})
+        release_lease(table, token)
         raise
 
 
@@ -128,7 +133,7 @@ def complete(s3, table, bucket, output_prefix, token, failed=False):
     if run["status"] in ("COMPLETED", "FAILED"):
         lock = table.get_item(Key={"pk": "LOCK"}, ConsistentRead=True).get("Item")
         if lock and lock.get("token") == token:
-            table.delete_item(Key={"pk": "LOCK"}, ConditionExpression="token = :t", ExpressionAttributeValues={":t": token})
+            release_lease(table, token)
         return dict(run_token=token, quality=run["quality"])
     blocked = set()
     quality = "failed"
@@ -151,7 +156,7 @@ def complete(s3, table, bucket, output_prefix, token, failed=False):
     table.put_item(Item=run)
     if not failed:
         table.put_item(Item=dict(pk="CATALOG", digest=run["catalog_digest"]))
-    table.delete_item(Key={"pk": "LOCK"}, ConditionExpression="token = :t", ExpressionAttributeValues={":t": token})
+    release_lease(table, token)
     return dict(run_token=token, quality=quality)
 
 

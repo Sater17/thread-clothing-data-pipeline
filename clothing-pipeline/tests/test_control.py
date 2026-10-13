@@ -43,6 +43,13 @@ class Table:
     def scan(self, **kwargs):
         return {"Items": copy.deepcopy(list(self.items.values()))}
     def delete_item(self, Key, **kwargs):
+        if "token" in kwargs.get("ConditionExpression", ""):
+            raise ServiceError("ValidationException")
+        if kwargs.get("ExpressionAttributeNames", {}).get("#owner") != "token":
+            raise ServiceError("ValidationException")
+        current = self.items.get(Key["pk"])
+        if not current or current.get("token") != kwargs["ExpressionAttributeValues"][":t"]:
+            raise ServiceError("ConditionalCheckFailedException")
         self.items.pop(Key["pk"], None)
 
 
@@ -80,3 +87,24 @@ class ControlTests(unittest.TestCase):
         self.s3.objects[self.key] = json.dumps(self.manifest).encode()
         with self.assertRaises(ValueError):
             register(self.s3, self.table, "bucket", self.key, self.prefix)
+
+    def test_completion_retry_releases_lease_without_reprocessing_batches(self):
+        self.s3.objects[self.prefix + "/raw/part.jsonl"] = b"{}"
+        register(self.s3, self.table, "bucket", self.key, self.prefix)
+        result = plan(self.s3, self.table, "bucket", self.prefix, "thread/output")
+        original = self.table.delete_item
+        def interrupted(*args, **kwargs):
+            raise ServiceError("InternalServerError")
+        self.table.delete_item = interrupted
+        with self.assertRaises(ServiceError):
+            complete(self.s3, self.table, "bucket", "thread/output", result["run_token"], failed=True)
+        self.assertEqual("FAILED", self.table.items["RUN#" + result["run_token"]]["status"])
+        self.table.delete_item = original
+        self.assertEqual("failed", complete(self.s3, self.table, "bucket", "thread/output", result["run_token"], failed=True)["quality"])
+        self.assertNotIn("LOCK", self.table.items)
+
+    def test_completion_of_old_run_does_not_delete_new_lease(self):
+        self.table.items["RUN#old"] = dict(pk="RUN#old", status="COMPLETED", quality="passed")
+        self.table.items["LOCK"] = dict(pk="LOCK", token="new", expires=9999999999)
+        complete(self.s3, self.table, "bucket", "thread/output", "old")
+        self.assertEqual("new", self.table.items["LOCK"]["token"])

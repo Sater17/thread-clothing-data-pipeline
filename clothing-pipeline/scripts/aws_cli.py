@@ -22,7 +22,7 @@ def call(arguments):
         if arg.startswith(("file://", "fileb://")):
             scheme, path = arg.split("://", 1)
             args[index] = scheme + "://" + linux_path(path)
-    command = ["wsl.exe", "-d", "Ubuntu", "--", "/home/sater/.local/bin/aws"] + args + [
+    command = ["wsl.exe", "-d", "Ubuntu", "--exec", "/home/sater/.local/bin/aws"] + args + [
         "--profile", "aws-elt", "--region", "ap-southeast-1", "--output", "json", "--no-cli-pager"]
     result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
     if result.returncode:

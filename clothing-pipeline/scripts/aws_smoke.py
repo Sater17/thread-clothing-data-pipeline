@@ -69,12 +69,20 @@ def main():
         marker_path = evidence / "latest.json"
         call(["s3api", "get-object", "--bucket", config["DataBucket"], "--key", "thread/output/latest.json", linux_path(marker_path)])
         marker = json.loads(marker_path.read_text())
+        assert marker["quality"] == "passed", "cloud quality checks did not pass"
         result_path = evidence / "result.json"
         call(["s3api", "get-object", "--bucket", config["DataBucket"], "--key", marker["result_key"], linux_path(result_path)])
         data = json.loads(result_path.read_text())
         from thread_pipeline.sample import EXPECTED
         assert data["summary"] == EXPECTED, "cloud result differs from business oracle"
         assert len(marker["catalog"]["tables"]) == 21, "missing catalog tables"
+        ledger = call(["dynamodb", "scan", "--table-name", config["BatchTable"]])["Items"]
+        batches = [item for item in ledger if item["pk"]["S"].startswith("BATCH#")]
+        assert batches and all(item["status"]["S"] == "COMPLETED" for item in batches), "incomplete batch ledger"
+        catalog = call(["glue", "get-tables", "--database-name", config["CatalogDatabase"], "--max-results", "100"])
+        (evidence / "catalog-tables.json").write_text(json.dumps(catalog, indent=2))
+        names = {item["Name"] for item in catalog["TableList"]}
+        assert set(marker["catalog"]["tables"].values()).issubset(names), "catalog publication is incomplete"
         print(json.dumps(dict(oracle="passed", catalog_tables=21, summary=data["summary"]), indent=2))
 
 
