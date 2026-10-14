@@ -1,17 +1,42 @@
-"""Use project-local optional dependencies with isolated bundled Python runtimes."""
-
-import runpy
+"""Developer runner; simulation/reference code stays outside src and artifacts."""
+import argparse
+import json
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "src"))
 sys.path.insert(0, str(root))
-if (root / ".deps").is_dir():
+if sys.platform == "win32" and (root / ".deps").is_dir():
     sys.path.insert(0, str(root / ".deps"))
-if len(sys.argv) > 1 and sys.argv[1] == "test":
-    import unittest
-    suite = unittest.defaultTestLoader.discover(str(root / "tests"))
-    outcome = unittest.TextTestRunner(verbosity=2).run(suite)
-    raise SystemExit(0 if outcome.wasSuccessful() else 1)
-sys.argv = ["thread_pipeline"] + sys.argv[1:]
-runpy.run_module("thread_pipeline", run_name="__main__")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    commands = parser.add_subparsers(dest="command", required=True)
+    tests = commands.add_parser("test")
+    tests.add_argument("--suite", choices=["unit", "reference", "integration", "all"], default="unit")
+    sample = commands.add_parser("sample")
+    sample.add_argument("--output", type=Path, required=True)
+    history = commands.add_parser("history")
+    history.add_argument("--output", type=Path, required=True)
+    history.add_argument("--days", type=int, default=30)
+    history.add_argument("--orders-per-day", type=int, default=500)
+    history.add_argument("--skus", type=int, default=500)
+    history.add_argument("--seed", type=int, default=42)
+    history.add_argument("--daily-snapshots", action="store_true")
+    args = parser.parse_args()
+    if args.command == "test":
+        targets = [str(root / "tests")] if args.suite == "all" else [str(root / "tests" / args.suite)]
+        import pytest
+        raise SystemExit(pytest.main(targets + ["-q"]))
+    if args.command == "sample":
+        from tools.simulator.sample import generate
+        print(generate(args.output))
+    else:
+        from tools.simulator.history import generate_history
+        print(json.dumps(generate_history(args.output, args.days, args.orders_per_day, args.skus, args.seed, args.daily_snapshots), indent=2))
+
+
+if __name__ == "__main__":
+    main()

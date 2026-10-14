@@ -5,12 +5,12 @@ import unittest
 from pathlib import Path
 
 from glue.job import execute
-from infra.template import template
+from v1_template import template
 from thread_pipeline.contracts import canonical_json
 from thread_pipeline.sample import generate, EXPECTED
 from test_glue_adapter import FakeS3, ClientError
 from test_control import Table
-from cloud.control import register, plan, complete
+from v1_control import register, plan, complete
 import sys
 import types
 from unittest.mock import patch

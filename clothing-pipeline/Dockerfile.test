@@ -1,0 +1,9 @@
+FROM python:3.11-slim-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir pyspark==3.5.4 pytest==8.4.2 \
+    boto3==1.43.113 pyarrow==12.0.1 numpy==1.26.4 cfn-lint==1.57.2 ruff==0.14.0 build
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://repo.maven.apache.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.7.1/iceberg-spark-runtime-3.5_2.12-1.7.1.jar', '/opt/iceberg-runtime.jar')"
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PYSPARK_PYTHON=python3
+WORKDIR /workspace

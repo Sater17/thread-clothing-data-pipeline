@@ -11,7 +11,7 @@ from scripts.deploy_release import deploy, verify_release
 class ReleaseTests(unittest.TestCase):
     def assets(self, directory):
         checksums = {}
-        for name in ("glue_job.py", "control.zip", "cloudformation.json"):
+        for name in ("glue_job.py", "thread_runtime.zip", "control.zip", "cloudformation.json"):
             body = b"{}"
             (directory / name).write_bytes(body)
             checksums[name] = hashlib.sha256(body).hexdigest()
@@ -40,7 +40,7 @@ class ReleaseTests(unittest.TestCase):
                 deploy(session, directory, "thread-test", "bucket", "thread-runtime/rev1", mode)
                 parameters = cfn.create_change_set.call_args.kwargs["Parameters"]
                 self.assertIn({"ParameterKey": "ScheduleState", "ParameterValue": "DISABLED"}, parameters)
-                self.assertEqual(3, s3.put_object.call_count)
+                self.assertEqual(4, s3.put_object.call_count)
                 self.assertTrue((directory / "change-set.json").exists())
                 if mode == "plan-only":
                     cfn.execute_change_set.assert_not_called()
@@ -66,3 +66,19 @@ class ReleaseTests(unittest.TestCase):
             deploy(session, directory, "thread-test", "bucket", "thread-runtime/rev1", "apply")
             self.assertEqual("CREATE", cfn.create_change_set.call_args.kwargs["ChangeSetType"])
             self.assertIn(unittest.mock.call("stack_create_complete"), cfn.get_waiter.call_args_list)
+
+    def test_update_preserves_email_unless_explicitly_overridden(self):
+        for email in (None, "recipient@example.com"):
+            with tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                self.assets(directory)
+                session, s3, cfn = MagicMock(), MagicMock(), MagicMock()
+                session.client.side_effect = lambda name: {"s3": s3, "cloudformation": cfn}[name]
+                cfn.describe_stacks.return_value = {"Stacks": [{"StackStatus": "UPDATE_COMPLETE", "Parameters": [
+                    {"ParameterKey": "NotificationEmail", "ParameterValue": "previous@example.com"}]}]}
+                cfn.create_change_set.return_value = {"Id": "change-id"}
+                cfn.describe_change_set.return_value = {"Status": "CREATE_COMPLETE"}
+                deploy(session, directory, "thread-test", "bucket", "thread-runtime/rev1", "plan-only", email)
+                parameter = next(item for item in cfn.create_change_set.call_args.kwargs["Parameters"] if item["ParameterKey"] == "NotificationEmail")
+                assert parameter == ({"ParameterKey": "NotificationEmail", "UsePreviousValue": True} if email is None else
+                    {"ParameterKey": "NotificationEmail", "ParameterValue": email})

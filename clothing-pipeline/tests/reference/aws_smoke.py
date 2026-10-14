@@ -4,18 +4,20 @@ import json
 import sys
 from pathlib import Path
 
-from aws_cli import call, linux_path
-from upload_inputs import upload_plan
-
-root = Path(__file__).resolve().parents[1]
+root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root))
+from scripts.aws_cli import call, linux_path
+from scripts.upload_inputs import upload_plan
 
 
 def outputs():
     stack = call(["cloudformation", "describe-stacks", "--stack-name", "thread-clothing-pipeline"])["Stacks"][0]
     if stack["StackStatus"] not in ("CREATE_COMPLETE", "UPDATE_COMPLETE"):
         raise ValueError("stack is not ready: " + stack["StackStatus"])
-    return {item["OutputKey"]: item["OutputValue"] for item in stack["Outputs"]}
+    result = {item["OutputKey"]: item["OutputValue"] for item in stack["Outputs"]}
+    if result.get("CatalogDatabase") != "thread_pipeline":
+        raise ValueError("this historical smoke tool supports V1 only")
+    return result
 
 
 def main():

@@ -4,15 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thread-clothing-pipeline"
-version = "1.0.0"
-description = "Contract-first omnichannel clothing data pipeline"
-requires-python = ">=3.9"
+version = "2.0.0"
+description = "Distributed omnichannel ETL with explicit publication and monitoring"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 parquet = ["pyarrow>=12,<27"]
 cloud = ["boto3>=1.35,<2"]
 dev = ["cfn-lint>=1.57,<2"]
+spark = ["pyspark==3.5.4"]
+test = ["pytest>=8,<9", "pyarrow>=12,<27", "numpy>=1.26,<2", "boto3>=1.35,<2"]
 
 [tool.setuptools.packages.find]
-include = ["thread_pipeline*"]
+where = ["src"]
+include = ["thread_etl*", "cloud*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/reference", "tests/integration"]
+pythonpath = ["src", ".", "tests/unit", "tests/reference"]
+markers = ["spark: distributed transformations and storage integration requiring Java 17 and Spark 3.5.4"]

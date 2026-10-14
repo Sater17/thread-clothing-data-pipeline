@@ -4,7 +4,7 @@ import io
 import json
 import unittest
 
-from cloud.control import inspect_manifest, register, plan, complete
+from v1_control import inspect_manifest, register, plan, complete
 from thread_pipeline.contracts import canonical_json
 
 
