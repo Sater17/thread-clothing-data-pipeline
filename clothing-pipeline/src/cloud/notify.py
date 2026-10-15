@@ -6,6 +6,7 @@ import time
 import uuid
 
 LOGGER = logging.getLogger("thread.alerts")
+LOGGER.setLevel(logging.INFO)
 
 
 def inspect_failure(event, glue, states, job_name, workflow_arn):
