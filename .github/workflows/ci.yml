@@ -12,12 +12,12 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  unit:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.12']
+        python: ['3.11', '3.12']
     defaults:
       run:
         working-directory: clothing-pipeline
@@ -26,14 +26,45 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - name: Install Glue-compatible dependencies
-        if: matrix.python == '3.9'
-        run: python -m pip install -e . numpy==1.26.4 pyarrow==12.0.1
-      - name: Install local dependencies
-        if: matrix.python == '3.12'
-        run: python -m pip install -e '.[parquet]'
-      - name: Run unit and integration tests without AWS
-        run: python scripts/dev.py test
+      - run: python -m pip install -e '.[test]'
+      - run: python scripts/dev.py test --suite unit
+
+  reference:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: clothing-pipeline
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[test]'
+      - run: python scripts/dev.py test --suite reference
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: clothing-pipeline
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build isolated Spark and Iceberg test runtime
+        run: docker build -f Dockerfile.test -t thread-pipeline-spark-tests:3.5.4 .
+      - name: Test queried coordinator with DynamoDB Local
+        run: docker compose -p thread-pipeline-tests -f compose.test.yml run --rm tests
+      - name: Test native Spark transformations and Iceberg publication
+        run: >-
+          docker run --rm --memory 4g
+          -v "$PWD:/workspace:ro" -w /workspace
+          -e PYTHONPATH=/workspace/src:/workspace
+          -e 'PYSPARK_SUBMIT_ARGS=--driver-memory 2g pyspark-shell'
+          thread-pipeline-spark-tests:3.5.4
+          python -m pytest tests/integration -m spark -q -p no:cacheprovider
+      - name: Clean test services
+        if: always()
+        run: docker compose -p thread-pipeline-tests -f compose.test.yml down
 
   build:
     runs-on: ubuntu-24.04
@@ -44,26 +75,17 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
-      - run: python -m pip install -e '.[dev,parquet]'
+          python-version: '3.11'
+      - run: python -m pip install -e '.[dev]'
       - run: python scripts/build_deploy.py
       - run: python scripts/lint_infra.py
       - uses: actions/upload-artifact@v7
         with:
           name: pipeline-release
-          path: clothing-pipeline/dist/
+          path: |
+            clothing-pipeline/dist/glue_job.py
+            clothing-pipeline/dist/thread_runtime.zip
+            clothing-pipeline/dist/control.zip
+            clothing-pipeline/dist/cloudformation.json
+            clothing-pipeline/dist/release.json
           retention-days: 7
-
-  smoke:
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: clothing-pipeline
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - run: python -m pip install -e '.[parquet]'
-      - run: python scripts/dev.py history --output data/ci/input --days 2 --orders-per-day 20 --skus 12 --daily-snapshots
-      - run: python scripts/dev.py run --input data/ci/input --state data/ci/ledger.sqlite --output data/ci/output --check-history --parquet

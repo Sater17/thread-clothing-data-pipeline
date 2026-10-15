@@ -9,14 +9,14 @@ import uuid
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-if (root / ".deps").is_dir():
+if sys.platform == "win32" and (root / ".deps").is_dir():
     sys.path.insert(0, str(root / ".deps"))
 
 
 def verify_release(directory):
     directory = Path(directory)
     expected = json.loads((directory / "release.json").read_text(encoding="utf-8"))
-    if set(expected) != {"glue_job.py", "control.zip", "cloudformation.json"}:
+    if set(expected) != {"glue_job.py", "thread_runtime.zip", "control.zip", "cloudformation.json"}:
         raise ValueError("unexpected release asset list")
     for filename, digest in expected.items():
         if hashlib.sha256((directory / filename).read_bytes()).hexdigest() != digest:
@@ -24,7 +24,7 @@ def verify_release(directory):
     return expected
 
 
-def deploy(session, directory, stack, bucket, prefix, mode):
+def deploy(session, directory, stack, bucket, prefix, mode, notification_email=None):
     if mode not in ("plan-only", "apply"):
         raise ValueError("invalid deployment mode")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,80}", stack):
@@ -52,10 +52,22 @@ def deploy(session, directory, stack, bucket, prefix, mode):
         if error.get("Code") != "ValidationError" or "does not exist" not in error.get("Message", ""):
             raise
     change_set = "release-" + uuid.uuid4().hex
+    email_parameter = dict(ParameterKey="NotificationEmail")
+    if notification_email is not None:
+        email_parameter["ParameterValue"] = notification_email
+    elif kind == "UPDATE":
+        existing = cfn.describe_stacks(StackName=stack)["Stacks"][0].get("Parameters", [])
+        if any(item["ParameterKey"] == "NotificationEmail" for item in existing):
+            email_parameter["UsePreviousValue"] = True
+        else:
+            email_parameter["ParameterValue"] = ""
+    else:
+        email_parameter["ParameterValue"] = ""
     response = cfn.create_change_set(StackName=stack, ChangeSetName=change_set, ChangeSetType=kind,
         TemplateBody=(Path(directory) / "cloudformation.json").read_text(encoding="utf-8"), Capabilities=["CAPABILITY_IAM"],
         Parameters=[dict(ParameterKey="ArtifactBucket", ParameterValue=bucket), dict(ParameterKey="ArtifactPrefix", ParameterValue=prefix),
-                    dict(ParameterKey="ScheduleState", ParameterValue="DISABLED")])
+                    dict(ParameterKey="ScheduleState", ParameterValue="DISABLED"), dict(ParameterKey="DatabaseName", ParameterValue="thread_pipeline_v2"),
+                    email_parameter])
     waiter = cfn.get_waiter("change_set_create_complete")
     try:
         waiter.wait(ChangeSetName=response["Id"], WaiterConfig={"Delay": 5, "MaxAttempts": 120})
@@ -82,10 +94,11 @@ def main():
     parser.add_argument("--region", default="ap-southeast-1")
     parser.add_argument("--profile")
     parser.add_argument("--mode", choices=["plan-only", "apply"], default="plan-only")
+    parser.add_argument("--notification-email", help="Email recipient; omit to preserve an existing subscription")
     args = parser.parse_args()
     import boto3
     session = boto3.Session(profile_name=args.profile, region_name=args.region)
-    print(json.dumps(deploy(session, root / "dist", args.stack, args.bucket, args.prefix, args.mode), indent=2))
+    print(json.dumps(deploy(session, root / "dist", args.stack, args.bucket, args.prefix, args.mode, args.notification_email), indent=2))
 
 
 if __name__ == "__main__":

@@ -8,6 +8,10 @@ on:
         type: choice
         options: ['plan-only', 'apply']
         default: 'plan-only'
+      notification_email:
+        description: 'SNS email recipient; leave empty to preserve current subscription'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -32,6 +36,7 @@ jobs:
       ARTIFACT_BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
       STACK_NAME: thread-clothing-pipeline
       DEPLOY_MODE: ${{ inputs.mode }}
+      NOTIFICATION_EMAIL: ${{ inputs.notification_email || vars.AWS_ALERT_EMAIL }}
     defaults:
       run:
         working-directory: clothing-pipeline
@@ -57,7 +62,12 @@ jobs:
           role-session-name: thread-deploy-${{ github.run_id }}
       - run: python -m pip install -e '.[cloud]'
       - name: Upload release and create change set
-        run: python scripts/deploy_release.py --stack "$STACK_NAME" --bucket "$ARTIFACT_BUCKET" --region "$AWS_REGION" --prefix "thread-runtime/$GITHUB_SHA" --mode "$DEPLOY_MODE"
+        run: |
+          email_args=()
+          if [ -n "$NOTIFICATION_EMAIL" ]; then
+            email_args=(--notification-email "$NOTIFICATION_EMAIL")
+          fi
+          python scripts/deploy_release.py --stack "$STACK_NAME" --bucket "$ARTIFACT_BUCKET" --region "$AWS_REGION" --prefix "thread-runtime/$GITHUB_SHA" --mode "$DEPLOY_MODE" "${email_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

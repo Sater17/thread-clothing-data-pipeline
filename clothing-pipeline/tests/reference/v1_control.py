@@ -7,7 +7,7 @@ import time
 import uuid
 from pathlib import PurePosixPath
 
-from thread_pipeline.contracts import canonical_json, timestamp
+from thread_etl.contracts import canonical_json, timestamp
 
 
 def inspect_manifest(s3, bucket, key, input_prefix):

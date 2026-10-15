@@ -1,0 +1,6 @@
+.deps
+data
+dist
+.venv
+**/__pycache__
+**/*.pyc

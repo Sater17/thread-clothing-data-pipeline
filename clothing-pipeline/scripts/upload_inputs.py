@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 project_root = Path(__file__).resolve().parents[1]
-if (project_root / ".deps").is_dir():
+if sys.platform == "win32" and (project_root / ".deps").is_dir():
     sys.path.insert(0, str(project_root / ".deps"))
 
 
@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--bucket", required=True)
-    parser.add_argument("--prefix", default="thread/input")
+    parser.add_argument("--prefix", default="thread/input/v2")
     parser.add_argument("--profile")
     parser.add_argument("--region", default="ap-southeast-1")
     parser.add_argument("--apply", action="store_true")

@@ -9,4 +9,4 @@ The project prioritizes normalized, traceable data across orders, payments, inve
 - [AWS smoke validation](clothing-pipeline/AWS-VALIDATION.md)
 - [Design](clothing-data-pipeline-design-v1.md)
 
-GitHub Actions runs offline tests, infrastructure validation, release builds and a history smoke test. AWS deployment is manually dispatched and defaults to creating a change set. The Glue schedule stays disabled on deployment.
+V2 is under development with PySpark, Iceberg and failure email monitoring; it has not been deployed to AWS. The linked AWS validation covers V1 only. GitHub Actions runs unit/reference tests, Spark/Iceberg/DynamoDB integration tests, infrastructure validation and release builds. AWS deployment is manually dispatched and defaults to creating a change set. The Glue schedule stays disabled on deployment.
