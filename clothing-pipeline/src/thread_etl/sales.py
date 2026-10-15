@@ -5,7 +5,9 @@ from .frames import amount, event_base, identifier, key, p, quantity
 
 
 def extract(events, kind, fields=(), money=(), integers=()):
-    return events.filter(F.col("type") == kind).select("*", *[p(name).alias(name) for name in fields],
+    # Independent domain branches must not share Catalyst attribute IDs after checkpoints.
+    columns = [F.col(name).alias(name) for name in events.columns]
+    return events.filter(F.col("type") == kind).select(*columns, *[p(name).alias(name) for name in fields],
         *[amount(name).alias(name) for name in money], *[quantity(name).alias(name) for name in integers])
 
 

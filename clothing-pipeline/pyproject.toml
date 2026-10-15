@@ -14,6 +14,7 @@ parquet = ["pyarrow>=12,<27"]
 cloud = ["boto3>=1.35,<2"]
 dev = ["cfn-lint>=1.57,<2"]
 spark = ["pyspark==3.5.4"]
+validation = ["pyarrow>=12,<27", "fastavro>=1.13,<2"]
 test = ["pytest>=8,<9", "pyarrow>=12,<27", "numpy>=1.26,<2", "boto3>=1.35,<2"]
 
 [tool.setuptools.packages.find]
