@@ -1,6 +1,6 @@
 # THREAD V2: triển khai và vận hành
 
-V2 chưa triển khai AWS. [AWS-VALIDATION.md](AWS-VALIDATION.md) ghi bằng chứng V1; [runbook V1](docs/history/DEPLOYMENT-v1.md) chỉ dùng để xem lại. Không chạy fixture hoặc uploader V1 với ledger V2.
+V2 đã triển khai và hoàn tất smoke test 24 sự kiện; xem [bằng chứng V2](AWS-VALIDATION-V2.md). Email lỗi Glue đã được xác nhận tới người nhận. [AWS-VALIDATION.md](AWS-VALIDATION.md) ghi bằng chứng V1; [runbook V1](docs/history/DEPLOYMENT-v1.md) chỉ dùng để xem lại. Không chạy fixture hoặc uploader V1 với ledger V2.
 
 ## Trước triển khai
 

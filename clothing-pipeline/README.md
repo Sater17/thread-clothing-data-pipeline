@@ -1,6 +1,6 @@
 # THREAD clothing data pipeline
 
-V2 đang được chuẩn bị trên nhánh `codex/production-spark`. ETL dùng PySpark 3.5.4, Apache Iceberg và Glue 5.0; chưa triển khai hay chạy V2 trên AWS. Kết quả [AWS V1](AWS-VALIDATION.md) chỉ áp dụng cho bản Python Shell cũ.
+V2 dùng PySpark 3.5.4, Apache Iceberg và Glue 5.0; đã triển khai AWS và hoàn tất smoke test 24 sự kiện. Snapshot khớp oracle, retry không nhân đôi Bronze và email lỗi Glue đã tới người nhận. Xem [bằng chứng V2](AWS-VALIDATION-V2.md); [AWS V1](AWS-VALIDATION.md) chỉ áp dụng cho bản Python Shell cũ.
 
 Pipeline ưu tiên dữ liệu chuẩn hóa của brand quần áo ở Việt Nam và Singapore: website, sàn, POS, kho/cửa hàng, mua hàng, bán hàng, trả hàng và đối soát. Adapter nguồn thực tế chưa được xây dựng; đầu vào hiện dùng contract chuẩn và simulator.
 

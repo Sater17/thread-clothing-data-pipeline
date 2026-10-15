@@ -19,6 +19,7 @@ def main():
     import pyarrow.parquet as pq
     stack = call(["cloudformation", "describe-stacks", "--stack-name", "thread-clothing-pipeline"])["Stacks"][0]
     outputs = {item["OutputKey"]: item["OutputValue"] for item in stack["Outputs"]}
+    assert next(item["ParameterValue"] for item in stack["Parameters"] if item["ParameterKey"] == "ScheduleState") == "DISABLED"
     bucket, prefix = outputs["DataBucket"], outputs["OutputPrefix"]
     execution = json.loads((EVIDENCE / "execution.json").read_text())
     details = call(["stepfunctions", "describe-execution", "--execution-arn", execution["executionArn"]])
@@ -27,6 +28,10 @@ def main():
     token = json.loads(details["output"])["Payload"]["run_token"]
     cache = EVIDENCE / ("snapshot-" + token)
     cache.mkdir(exist_ok=True)
+    lease_key = cache / "lease-key.json"
+    lease_key.write_text(json.dumps({"pk": {"S": "PIPELINE#thread-clothing-pipeline"}, "sk": {"S": "LEASE"}}), encoding="utf-8")
+    lease = call(["dynamodb", "get-item", "--table-name", outputs["BatchTable"], "--consistent-read", "--key", "file://" + str(lease_key)])
+    assert not lease.get("Item"), "the completed smoke must release its lease"
 
     def get(key, path):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +63,10 @@ def main():
 
     catalog = call(["glue", "get-tables", "--database-name", outputs["CatalogDatabase"]])["TableList"]
     catalog = {table["Name"]: table for table in catalog}
+    bronze = json.loads(local(catalog["bronze_events"]["Parameters"]["metadata_location"]).read_text())
+    bronze_snapshot = next(item for item in bronze["snapshots"] if item["snapshot-id"] == bronze["current-snapshot-id"])
+    bronze_rows = int(bronze_snapshot["summary"]["total-records"])
+    assert bronze_rows == 24, "batch retries must not duplicate Bronze events"
     summaries, snapshots = {}, {}
     for name, entry in publication["tables"].items():
         metadata = json.loads(local(catalog[name]["Parameters"]["metadata_location"]).read_text())
@@ -100,11 +109,13 @@ def main():
             money[key] = money.get(key, Decimal("0")) + payment["amount"]
     assert money["charge_SGD"] == Decimal(expected["collected_SGD"])
     assert money["refund_SGD"] == Decimal(expected["refunded_SGD"])
+    reserved = sum(row["quantity"] for row in rows("reservations"))
+    assert reserved == expected["reserved"]
     purchase, returned = rows("purchase_lines")[0], rows("return_lines")[0]
     assert (purchase["received_quantity"], purchase["outstanding_quantity"], purchase["accepted_quantity"], purchase["defective_quantity"]) == (80, 20, 78, 2)
     assert returned["refunded_amount"] == Decimal("27.00")
     assert summaries["stock_lineage"] == 5 and summaries["standardized"] == 24
-    report = dict(quality="passed", run_token=token, table_rows=summaries, money=money,
+    report = dict(quality="passed", run_token=token, bronze_rows=bronze_rows, lease_released=True, schedule="DISABLED", reserved=reserved, table_rows=summaries, money=money,
         warehouse_sellable=inventory[("SKU-0001", "LOC-0005", "sellable")], warehouse_defective=inventory[("SKU-0001", "LOC-0005", "defective")],
         store_sellable=inventory[("SKU-0001", "LOC-0006", "sellable")], verified_from="published Iceberg manifest lists and data manifests")
     (EVIDENCE / "verification.json").write_text(json.dumps(report, default=str, indent=2), encoding="utf-8")
